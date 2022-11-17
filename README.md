@@ -1,10 +1,6 @@
+### FORK for leaning Elixir (Mix, OTP) & Docker
+
 # Echo server in Elixir
-
-## Create the project
-
-```
-mix new echo --bare  
-```
 
 ## TCP Server
 There is a Erlang module called gen_tcp that we'll use to for communicating
@@ -58,8 +54,34 @@ The ```-S mix``` options will load your project into the current session.
 
 Connect using telnet or netcat and try it out.
 
+## Running on the docker container.
+To do this open a console, go to project dir and build image.
+
+```
+$ docker build . -t elixir:1.14-echo
+```
+
+Then run container.
+
+```
+$ docker run -itp 400:6000 --rm --name echo elixir:1.14-echo
+```
+
+or in detached mode.
+
+```
+$ docker run -dp 400:6000 --rm --name echo elixir:1.14-echo
+```
+
+Connect using telnet.
+
+```
+$ telnet localhost 400
+```
+
+
 ## Automating tasks
-Create a ```lib/tasks.ex``` file and a module called ```Mix.Tasks.Start```. The
+Create a ```lib/mix/tasks/start.ex``` file and a module called ```Mix.Tasks.Start```. The
 ```run``` function will be called by mix when we invoke the task.
 
 ```elixir
