@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN mix compile
+RUN mix local.hex --force
+RUN mix do deps.get, compile
 
 CMD ["mix", "start"]

@@ -1,4 +1,4 @@
-### FORK for leaning Elixir (Mix, OTP) & Docker
+### FORK for leaning Elixir (Mix, OTP, Ecto) & Docker
 
 # Echo server in Elixir
 
@@ -6,7 +6,7 @@
 There is a Erlang module called gen_tcp that we'll use to for communicating
 with TCP sockets.
 
-In ```lib/server.ex``` we have the module responsible for that. It starts
+In ```lib/echo/server.ex``` we have the module responsible for that. It starts
 a server
 
 ```elixir
@@ -42,10 +42,19 @@ defp recv(conn) do
 end
 ```
 
+to close connection with server, client should write `stop`
+
+```elixir
+    case :gen_tcp.recv(conn, 0) do
+      {:ok, <<"stop\r\n">>} ->
+        :gen_tcp.close (conn)
+        :ok
+```
+
 ## Running on the console.
 To run this open a console and start the server.
 
-```
+```shell
 $ iex -S mix
 iex> Echo.Server.start(6000)
 ```
@@ -57,25 +66,25 @@ Connect using telnet or netcat and try it out.
 ## Running on the docker container.
 To do this open a console, go to project dir and build image.
 
-```
-$ docker build . -t elixir:1.14-echo
+```shell
+$ make image
 ```
 
 Then run container.
 
-```
-$ docker run -itp 400:6000 --rm --name echo elixir:1.14-echo
+```shell
+$ make run
 ```
 
 or in detached mode.
 
-```
-$ docker run -dp 400:6000 --rm --name echo elixir:1.14-echo
+```shell
+$ make run-detached
 ```
 
 Connect using telnet.
 
-```
+```shell
 $ telnet localhost 400
 ```
 
@@ -92,12 +101,13 @@ end
 
 Compile your app and start the server
 
-```
+```shell
+$ mix deps.get
 $ mix compile
 $ mix start
 ```
 
-or 
-```
-$ mix do compile, start
+or
+```shell
+$ mix do deps.get, compile, start
 ```
