@@ -3,7 +3,10 @@ defmodule Mix.Tasks.Start do
   use Mix.Task
 
   @shortdoc "Start exo server on 6000 port."
-  def run(_) do
+  def run(args) do
+    Mix.Task.run "app.start" # for using config/config.exs
+
+    IO.inspect(args, label: "Received args")
     Echo.Server.start(6000)
   end
 
