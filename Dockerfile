@@ -1,6 +1,6 @@
 FROM elixir:1.14
 
-
+ENV MIX_ENV docker
 # Install two tools needed to build other dependencies.
 RUN mix do local.hex --force, local.rebar --force
 
