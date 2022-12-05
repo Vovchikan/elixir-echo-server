@@ -2,12 +2,18 @@ defmodule Mix.Tasks.Start do
   @moduledoc "The start mix task: `mix help start`"
   use Mix.Task
 
-  @shortdoc "Start exo server on 6000 port."
+  @shortdoc "Start exo server on given port (def 6000)."
   def run(args) do
     Mix.Task.run "app.start" # for using config/config.exs
 
-    IO.inspect(args, label: "Received args")
-    Echo.Server.start(6000)
+    port =
+      with [port] <- args,
+           {number, _} <- Integer.parse(port)
+         do number
+      else
+        _ -> 6000
+      end
+    Echo.Server.start(port)
   end
 
 end
