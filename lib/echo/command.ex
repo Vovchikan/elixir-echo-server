@@ -1,5 +1,6 @@
 defmodule Echo.Command do
   import Ecto.Query
+  import Ecto.Changeset
   alias Echo.{Repo, Schema}
   require Logger
   @doc ~S"""
@@ -7,8 +8,8 @@ defmodule Echo.Command do
 
   ## Examples
 
-      iex> Echo.Command.parse("CREATE key shopping\r\n")
-      {:ok, {:create, "key", "shopping"}}
+      iex> Echo.Command.parse("CREATE animal cat\r\n")
+      {:ok, {:create, %{key: "animal", value: "cat"}}}
 
       iex> Echo.Command.parse("READ\r\n")
       {:ok, {:read, :all}}
@@ -40,7 +41,7 @@ defmodule Echo.Command do
 """
   def parse(line) do
     case String.split(line) do
-      ["CREATE", key, value] -> {:ok, {:create, key, value}}
+      ["CREATE", key, value] -> {:ok, {:create, %{key: key, value: value}}}
       ["READ"] -> {:ok, {:read, :all}}
       ["READ", key] -> {:ok, {:read, key}}
       ["UPDATE", key, value] -> {:ok, {:update, key, value}}
@@ -51,18 +52,16 @@ defmodule Echo.Command do
     end
   end
 
-  def run({:create, key, value}) when is_binary(key) and is_binary(value) do
-    with nil <- Repo.get_by(Schema, key: key),
-         {:ok, _} <- Repo.insert(%Schema{key: key, value: value})
-    do
-      {:ok, "OK\r\n"}
-    else
-      {:error, %Ecto.Changeset{}=changeset} ->
+  def run({:create, params}) when is_map(params) do
+    changeset =
+      %Schema{}
+      |> cast(params, [:key, :value])
+      |> validate_required([:key, :value])
+      |> unique_constraint(:key)
+    case Repo.insert(changeset) do
+      {:ok, _} -> {:ok, "OK\r\n"}
+      {:error, changeset} ->
         {:error, {:reason, "#{inspect changeset.errors}"}}
-      %Schema{} ->
-        {:error, {:reason, "entrie with key(#{key}) already exists"}}
-      _ ->
-        {:error, "unknown error in CREATE"}
     end
   end
 
