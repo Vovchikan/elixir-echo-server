@@ -20,35 +20,29 @@ end
 then loop forever accepting income connections
 
 ```elixir
-defp listen(socket) do
-  {:ok, conn} = :gen_tcp.accept(socket)
-  spawn(fn -> recv(conn) end)
-  listen(socket)
-end
+  @spec listen(:gen_tcp.socket()) :: no_return
+  defp listen(socket) do
+    {:ok, conn} = :gen_tcp.accept(socket)
+    {:ok, pid} = Task.Supervisor.start_child(
+      Echo.TaskSupervisor, fn -> serve(conn) end)
+    :ok = :gen_tcp.controlling_process(conn, pid)
+    listen(socket)
+  end
 ```
 
-when a client connects it spawns a new process and start receiving data
+when a client connects it spawns a new process by module Task, addes it to Supervisor and starts receiving data
 from the new made connection
 
 ```elixir
-defp recv(conn) do
-  case :gen_tcp.recv(conn, 0) do
-    {:ok, data} ->
-      :gen_tcp.send(conn, data)
-      recv(conn)
-    {:error, :closed} ->
-      :ok
-  end
+defp serve(socket) do
+  msg =
+    with {:ok, data} <- read_line(socket),
+         {:ok, command} <- Echo.Command.parse(data),
+         do: Echo.Command.run(command)
+
+  write_line(socket, msg)
+  serve(socket)
 end
-```
-
-to close connection with server, client should write `stop`
-
-```elixir
-    case :gen_tcp.recv(conn, 0) do
-      {:ok, <<"stop\r\n">>} ->
-        :gen_tcp.close (conn)
-        :ok
 ```
 
 ## Running on the console.
@@ -85,8 +79,42 @@ $ make run-detached
 Connect using telnet.
 
 ```shell
-$ telnet localhost 400
+$ make telnet
 ```
+
+## Example
+```shell
+$ telnet localhost 6000
+Trying ::1...
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+READ
+
+Result:
+KEY - VALUE
+test3 - value3
+test2 - value2
+test1 - value1
+
+DELETE test3
+OK
+READ
+
+Result:
+KEY - VALUE
+test2 - value2
+test1 - value1
+
+DELETE ALL
+2 entries have been removed
+READ
+
+Result:
+KEY - VALUE
+```
+
+For more available commands see [Echo.Command](./lib/echo/command.ex) module
 
 
 ## Automating tasks
@@ -94,9 +122,18 @@ Create a ```lib/mix/tasks/start.ex``` file and a module called ```Mix.Tasks.Star
 ```run``` function will be called by mix when we invoke the task.
 
 ```elixir
-def run(_) do
-  Echo.Server.start(6000)
-end
+def run(args) do
+    Mix.Task.run "app.start" # for starting deps (like ecto)
+
+    port =
+      with [port] <- args,
+           {number, _} <- Integer.parse(port)
+         do number
+      else
+        _ -> 6000
+      end
+    Echo.Server.start(port)
+  end
 ```
 
 Compile your app and start the server
@@ -104,10 +141,13 @@ Compile your app and start the server
 ```shell
 $ mix deps.get
 $ mix compile
+$ mix ecto.setup
 $ mix start
 ```
 
 or
 ```shell
-$ mix do deps.get, compile, start
+$ mix do deps.get, compile, ecto.setup, start
 ```
+## Deps
+PostgreSQL on local machine
