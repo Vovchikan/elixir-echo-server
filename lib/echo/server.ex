@@ -60,6 +60,11 @@ defmodule Echo.Server do
     exit(:shutdown)
   end
 
+  defp write_line(socket, {:error, {:reason, reason}}) when is_binary(reason) do
+    # Unknown error; write to the client and exit
+    :gen_tcp.send(socket, "ERROR with REASON: #{reason}\n\r\n")
+  end
+
   defp write_line(socket, {:error, error}) do
     # Unknown error; write to the client and exit
     :gen_tcp.send(socket, "ERROR\r\n")
