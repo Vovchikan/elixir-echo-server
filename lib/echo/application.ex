@@ -6,7 +6,8 @@ defmodule Echo.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      Echo.Repo
+      Echo.Repo,
+      {Task.Supervisor, name: Echo.TaskSupervisor}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

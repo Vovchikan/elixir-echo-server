@@ -4,7 +4,7 @@ defmodule Echo.Server do
 
   @spec start(:inet.port_number()) :: no_return
   def start(port) do
-    Logger.notice(~s"Start tcp echo server on port = #{port}")
+    Logger.notice(~s"Start tcp server on port = #{port}")
 
     tcp_options = [:binary, {:packet, 0}, {:active, false}]
     {:ok, socket} = :gen_tcp.listen(port, tcp_options)
@@ -16,7 +16,9 @@ defmodule Echo.Server do
     Logger.notice(fn -> "LS=#{inspect socket}: Waiting accept" end)
 
     {:ok, conn} = :gen_tcp.accept(socket)
-    spawn(fn -> serve(conn) end)
+    {:ok, pid} = Task.Supervisor.start_child(
+      Echo.TaskSupervisor, fn -> serve(conn) end)
+    :ok = :gen_tcp.controlling_process(conn, pid)
     listen(socket)
   end
 
@@ -42,7 +44,6 @@ defmodule Echo.Server do
     end
   end
 
-  defp write_line(socket, context)
   defp write_line(socket, {:ok, text}) do
     :gen_tcp.send(socket, text)
   end
@@ -54,6 +55,7 @@ defmodule Echo.Server do
 
   defp write_line(socket, {:error, :closed}) do
     # The connection was closed, exit politely
+    :gen_tcp.send(socket, "Closing connection...\r\n")
     :gen_tcp.close(socket)
     exit(:shutdown)
   end

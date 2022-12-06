@@ -13,6 +13,9 @@ defmodule Echo.Command do
       iex>Echo.Command.parse("ADD shopping milk\r\n")
       {:ok, {:add, {"shopping", "milk"}}}
 
+      iex>Echo.Command.parse("EXIT\r\n")
+      {:error, :closed}
+
   Unknown commands or commands with the wrong number of
   arguments return an error:
 
@@ -27,6 +30,7 @@ defmodule Echo.Command do
     case String.split(line) do
       ["CREATE", "KEY", key] -> {:ok, {:create_key, key}}
       ["ADD", key, value] -> {:ok, {:add, {key, value}}}
+      ["EXIT"] -> {:error, :closed}
       _ -> {:error, :unknown_command}
     end
   end
@@ -48,6 +52,7 @@ defmodule Echo.Command do
     |> Repo.update_all(set: [value: value])
     {:ok, "Updated #{count} lines in db\r\n"}
   end
+
   def run(command) do
     Logger.debug("command = #{inspect command}")
     {:ok, "NOT IMPLEMENTED\r\n"}
