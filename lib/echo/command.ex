@@ -7,8 +7,8 @@ defmodule Echo.Command do
 
   ## Examples
 
-      iex> Echo.Command.parse("CREATE KEY shopping\r\n")
-      {:ok, {:create_key, "shopping"}}
+      iex> Echo.Command.parse("CREATE key shopping\r\n")
+      {:ok, {:create, "key", "shopping"}}
 
       iex> Echo.Command.parse("READ\r\n")
       {:ok, {:read, :all}}
@@ -16,17 +16,14 @@ defmodule Echo.Command do
       iex> Echo.Command.parse("READ key\r\n")
       {:ok, {:read, "key"}}
 
-      iex> Echo.Command.parse("UPDATE key\r\n")
-      {:ok, {:update, "key"}}
+      iex> Echo.Command.parse("UPDATE key value\r\n")
+      {:ok, {:update, "key", "value"}}
 
       iex> Echo.Command.parse("DELETE ALL\r\n")
       {:ok, {:delete, :all}}
 
       iex> Echo.Command.parse("DELETE key\r\n")
       {:ok, {:delete, "key"}}
-
-      iex>Echo.Command.parse("ADD shopping milk\r\n")
-      {:ok, {:add, {"shopping", "milk"}}}
 
       iex>Echo.Command.parse("EXIT\r\n")
       {:error, :closed}
@@ -43,26 +40,30 @@ defmodule Echo.Command do
 """
   def parse(line) do
     case String.split(line) do
-      ["CREATE", "KEY", key] -> {:ok, {:create_key, key}}
+      ["CREATE", key, value] -> {:ok, {:create, key, value}}
       ["READ"] -> {:ok, {:read, :all}}
       ["READ", key] -> {:ok, {:read, key}}
-      ["UPDATE", key] -> {:ok, {:update, key}}
+      ["UPDATE", key, value] -> {:ok, {:update, key, value}}
       ["DELETE", "ALL"] -> {:ok, {:delete, :all}}
       ["DELETE", key] -> {:ok, {:delete, key}}
-      ["ADD", key, value] -> {:ok, {:add, {key, value}}}
       ["EXIT"] -> {:error, :closed}
       _ -> {:error, :unknown_command}
     end
   end
 
-  def run({:create_key, key}) when is_binary(key) do
-    Logger.debug("CREATE KEY - #{inspect key}")
-
-    from(d in "dictionary", where: d.key == ^key)
-    |> Repo.delete_all
-    schema = %Schema{key: key}
-    Repo.insert(schema)
-    {:ok, "Created key - #{key}\r\n"}
+  def run({:create, key, value}) when is_binary(key) and is_binary(value) do
+    with nil <- Repo.get_by(Schema, key: key),
+         {:ok, _} <- Repo.insert(%Schema{key: key, value: value})
+    do
+      {:ok, "OK\r\n"}
+    else
+      {:error, %Ecto.Changeset{}=changeset} ->
+        {:error, {:reason, "#{inspect changeset.errors}"}}
+      %Schema{} ->
+        {:error, {:reason, "entrie with key(#{key}) already exists"}}
+      _ ->
+        {:error, "unknown error in CREATE"}
+    end
   end
 
   def run({:read, :all}) do
@@ -82,6 +83,12 @@ defmodule Echo.Command do
     end
   end
 
+  def run({:update, key, value}) when is_binary(key) and is_binary(value) do
+    {count, _} = from(d in "dictionary", where: d.key == ^key)
+    |> Repo.update_all(set: [value: value])
+    {:ok, "Updated #{count} lines in db\r\n"}
+  end
+
   def run({:delete, :all}) do
     {entries, _} = Repo.delete_all(Schema)
 
@@ -94,18 +101,11 @@ defmodule Echo.Command do
         {:ok, _} ->
           {:ok, "OK\r\n"}
         {:error, changeset} ->
-          {:error, {:reason, "#{changeset.errors}"}}
+          {:error, {:reason, "#{inspect changeset.errors}"}}
       end
     rescue
       Ecto.NoResultsError -> {:ok, "OK\r\n"}
     end
-  end
-
-  def run({:add, {key, value}}) when is_binary(key) do
-    Logger.debug("ADD NEW VALUE - #{inspect value}")
-    {count, _} = from(d in "dictionary", where: d.key == ^key)
-    |> Repo.update_all(set: [value: value])
-    {:ok, "Updated #{count} lines in db\r\n"}
   end
 
   def run(command) do
